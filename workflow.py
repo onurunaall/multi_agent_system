@@ -34,20 +34,14 @@ Given the conversation so far, decide which sub-agent should act next.
 Multiple steps may be required to fully satisfy a request.
 """
 
-supervisor_prebuilt_workflow = create_supervisor(
-    agents=[invoice_agent, music_agent],
-    output_mode="last_message",
-    model=llm,
-    prompt=supervisor_prompt,
-    state_schema=State,
-)
-supervisor_prebuilt = supervisor_prebuilt_workflow.compile(
-    name="music_catalog_subagent",
-    checkpointer=checkpointer,
-    store=store,
-)
+supervisor_prebuilt_workflow = create_supervisor(agents=[invoice_agent, music_agent],
+                                                 output_mode="last_message",
+                                                 model=llm,
+                                                 prompt=supervisor_prompt,
+                                                 state_schema=State)
 
-# ────────────────────── helper: find customer id ───────────────────
+supervisor_prebuilt = supervisor_prebuilt_workflow.compile(name="music_catalog_subagent", checkpointer=checkpointer, store=store)
+
 def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
     """
     Resolve a customer identifier (ID, e-mail, phone) to CustomerId.
@@ -56,31 +50,25 @@ def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
         return int(identifier)
 
     if identifier.startswith("+"):
-        row = db.run(
-            f"SELECT CustomerId FROM Customer WHERE Phone = '{identifier}';"
-        )
+        row = db.run(f"SELECT CustomerId FROM Customer WHERE Phone = '{identifier}';")
         parsed = ast.literal_eval(row)
         if parsed:
             return parsed[0][0]
 
     if "@" in identifier:
-        row = db.run(
-            f"SELECT CustomerId FROM Customer WHERE Email = '{identifier}';"
-        )
+        row = db.run(f"SELECT CustomerId FROM Customer WHERE Email = '{identifier}';")
         parsed = ast.literal_eval(row)
         if parsed:
             return parsed[0][0]
 
     return None
 
-# ───────── structured extractor: “what id did user give?” ──────────
 structured_llm = llm.with_structured_output(schema=UserInput)
 structured_system_prompt = (
     "Extract the customer's identifier (ID, e-mail, phone) from the messages. "
     "If none is present, return an empty string."
 )
 
-# ─────────────────────────── graph nodes ───────────────────────────
 def verify_info(state: State, config: RunnableConfig):
     """Verify customer identity or prompt for it."""
     if state.get("customer_id") is None:
@@ -95,19 +83,16 @@ def verify_info(state: State, config: RunnableConfig):
         )
         identifier = parsed.identifier
 
-        customer_id = (
-            get_customer_id_from_identifier(identifier) if identifier else None
-        )
+        customer_id = (get_customer_id_from_identifier(identifier) if identifier else None)
         if customer_id:
-            confirm = SystemMessage(
-                content=f"Account verified. Customer ID: {customer_id}."
-            )
+            confirm = SystemMessage(content=f"Account verified. Customer ID: {customer_id}.")
             return {"customer_id": customer_id, "messages": [confirm]}
         else:
             follow_up = llm.invoke(
                 [SystemMessage(content=guidance)] + state["messages"]
             )
             return {"messages": [follow_up]}
+    
     # already verified
     return None
 
@@ -160,16 +145,10 @@ def create_memory(state: State, config: RunnableConfig, store: BaseStore):
         prof: UserProfile = entry.value["memory"]
         current_pref = ", ".join(prof.music_preferences or [])
 
-    sys = SystemMessage(
-        content=create_memory_prompt.format(
-            conversation=state["messages"],
-            memory_profile=current_pref,
-        )
-    )
+    sys = SystemMessage(content=create_memory_prompt.format(conversation=state["messages"], memory_profile=current_pref))
     new_profile = llm.with_structured_output(UserProfile).invoke([sys])
     store.put(ns, "user_memory", {"memory": new_profile})
 
-# ─────────────────────── assemble final graph ─────────────────────
 multi_agent_final = StateGraph(State)
 multi_agent_final.add_node("verify_info", verify_info)
 multi_agent_final.add_node("human_input", human_input)
