@@ -1,0 +1,78 @@
+import pytest
+from unittest.mock import patch, MagicMock
+from agents.music_agent import (
+    get_albums_by_artist,
+    get_tracks_by_artist,
+    get_songs_by_genre,
+    check_for_songs,
+    generate_music_assistant_prompt,
+    should_continue,
+    create_music_agent_graph
+)
+from schemas import State
+from langchain_core.messages import AIMessage
+
+
+class TestMusicTools:
+    """Test cases for music agent tools."""
+    
+    @patch('agents.music_agent.db')
+    def test_get_albums_by_artist_valid(self, mock_db):
+        """Test getting albums for a valid artist."""
+        mock_db.run.return_value = "[('Album1', 'Artist1'), ('Album2', 'Artist1')]"
+        
+        result = get_albums_by_artist("Artist1")
+        
+        mock_db.run.assert_called_once()
+        assert "Artist1" in str(mock_db.run.call_args)
+    
+    def test_get_albums_by_artist_empty(self):
+        """Test getting albums with empty artist name."""
+        with pytest.raises(ValueError, match="Artist name required"):
+            get_albums_by_artist("")
+    
+    def test_get_albums_by_artist_whitespace(self):
+        """Test getting albums with whitespace artist name."""
+        with pytest.raises(ValueError, match="Artist name required"):
+            get_albums_by_artist("   ")
+    
+    @patch('agents.music_agent.db')
+    def test_get_tracks_by_artist_valid(self, mock_db):
+        """Test getting tracks for a valid artist."""
+        mock_db.run.return_value = "[('Song1', 'Artist1'), ('Song2', 'Artist1')]"
+        
+        result = get_tracks_by_artist("Artist1")
+        
+        mock_db.run.assert_called_once()
+        assert "Artist1" in str(mock_db.run.call_args)
+    
+    @patch('agents.music_agent.db')
+    def test_get_songs_by_genre_valid(self, mock_db):
+        """Test getting songs for a valid genre."""
+        # Mock genre ID query
+        mock_db.run.side_effect = ["[(1,)]",
+                                   "[{'Song': 'Song1', 'Artist': 'Artist1'}]"]
+        
+        result = get_songs_by_genre("Rock")
+        
+        assert mock_db.run.call_count == 2
+        assert isinstance(result, list)
+    
+    @patch('agents.music_agent.db')
+    def test_get_songs_by_genre_not_found(self, mock_db):
+        """Test getting songs for non-existent genre."""
+        mock_db.run.return_value = ""
+        
+        result = get_songs_by_genre("NonExistentGenre")
+        
+        assert "No songs found" in result
+    
+    @patch('agents.music_agent.db')
+    def test_check_for_songs_valid(self, mock_db):
+        """Test checking for songs."""
+        mock_db.run.return_value = "[('Song1', 'Artist1')]"
+        
+        result = check_for_songs("Song1")
+        
+        mock_db.run.assert_called_once()
+        assert "Song1" in str(mock_db.run.call_args)
