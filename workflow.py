@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
@@ -18,8 +18,8 @@ music_agent = create_music_agent_graph()
 
 supervisor_prompt = """
 You are an expert customer-support assistant for a digital music store. You supervise two specialised sub-agents:
-1. music_catalog_information_subagent which looks up catalogue data and user music preferences.
-2. invoice_information_subagent which retrieves customer invoices and purchase history.
+1. music_agent which looks up catalogue data and user music preferences.
+2. invoice_agent which retrieves customer invoices and purchase history.
 
 Given the conversation so far, decide which sub-agent should act next.
 Multiple steps may be required to fully satisfy a request.
@@ -34,25 +34,29 @@ supervisor_prebuilt_workflow = create_supervisor(agents=[invoice_agent, music_ag
 supervisor_prebuilt = supervisor_prebuilt_workflow.compile(name="music_catalog_subagent", checkpointer=checkpointer, store=store)
 
 def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
-    """
-    Resolve a customer identifier (ID, e-mail, phone) to CustomerId.
-    """
+    """Resolve a customer identifier (ID, e-mail, phone) to CustomerId."""
+    if not identifier:
+        return None
+        
     if identifier.isdigit():
         return int(identifier)
 
-    if identifier.startswith("+"):
-        row = db.run(f"SELECT CustomerId FROM Customer WHERE Phone = '{identifier}';")
-        parsed = ast.literal_eval(row)
-        if parsed:
-            return parsed[0][0]
+    try:
+        if identifier.startswith("+"):
+            row = db.run(f"SELECT CustomerId FROM Customer WHERE Phone = '{identifier}';")
+            if row:
+                parsed = ast.literal_eval(row)
+                if parsed:
+                    return parsed[0][0]
 
-    if "@" in identifier:
-        row = db.run(f"SELECT CustomerId FROM Customer WHERE Email = '{identifier}';")
-        parsed = ast.literal_eval(row)
-        if parsed:
-            return parsed[0][0]
-
-    return None
+        if "@" in identifier:
+            row = db.run(f"SELECT CustomerId FROM Customer WHERE Email = '{identifier}';")
+            if row:
+                parsed = ast.literal_eval(row)
+                if parsed:
+                    return parsed[0][0]
+    except Exception as e:
+        print(f"Error looking up customer: {e}")
 
 # Forced to output data matching the UserInput schema.
 structured_llm = llm.with_structured_output(schema=UserInput)
