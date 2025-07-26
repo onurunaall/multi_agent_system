@@ -53,6 +53,9 @@ def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> d
     Returns:
         dict: Employee information or an explanatory message.
     """
+    if not invoice_id or not customer_id:
+        return "Both invoice ID and customer ID are required"
+        
     query = """
         SELECT Employee.FirstName, Employee.Title, Employee.Email
         FROM Employee
