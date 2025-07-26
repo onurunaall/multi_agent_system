@@ -15,14 +15,10 @@ class TestDatabase:
         mock_response.text = "CREATE TABLE Test (id INT); INSERT INTO Test VALUES (1);"
         mock_get.return_value = mock_response
         
-        # Call the function
         engine = get_engine_for_chinook_db()
         
-        # Assertions
         assert engine is not None
-        mock_get.assert_called_once_with(
-            "https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_Sqlite.sql"
-        )
+        mock_get.assert_called_once_with("https://raw.githubusercontent.com/lerocha/chinook-database/master/ChinookDatabase/DataSources/Chinook_Sqlite.sql")
     
     @patch('database.requests.get')
     def test_get_engine_for_chinook_db_request_failure(self, mock_get):
