@@ -22,7 +22,7 @@ def get_engine_for_chinook_db():
     response.raise_for_status()
     sql_script = response.text
     
-    # Creatimg in-memory SQLite database using sqlite3
+    # Creating in-memory SQLite database using sqlite3
     conn = sqlite3.connect(":memory:")
     conn.executescript(sql_script)
     conn.commit()
