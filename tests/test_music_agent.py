@@ -76,3 +76,37 @@ class TestMusicTools:
         
         mock_db.run.assert_called_once()
         assert "Song1" in str(mock_db.run.call_args)
+
+
+class TestMusicAssistant:
+    """Test cases for music assistant functionality."""
+    
+    def test_generate_music_assistant_prompt_no_memory(self):
+        """Test prompt generation without memory."""
+        prompt = generate_music_assistant_prompt()
+        assert "Prior saved user preferences: None" in prompt
+        assert "CORE RESPONSIBILITIES" in prompt
+        assert "SEARCH GUIDELINES" in prompt
+    
+    def test_generate_music_assistant_prompt_with_memory(self):
+        """Test prompt generation with memory."""
+        prompt = generate_music_assistant_prompt("Likes Rock and Jazz")
+        assert "Prior saved user preferences: Likes Rock and Jazz" in prompt
+    
+    def test_should_continue_with_tool_calls(self):
+        """Test should_continue when tool calls exist."""
+        state = State(customer_id="123",
+                      messages=[AIMessage(content="", tool_calls=[{"name": "test"}])],
+                      loaded_memory=[],
+                      remaining_steps=10)
+        
+        assert should_continue(state) == "continue"
+    
+    def test_should_continue_without_tool_calls(self):
+        """Test should_continue when no tool calls."""
+        state = State(customer_id="123",
+                      messages=[AIMessage(content="Here's the answer")],
+                      loaded_memory=[],
+                      remaining_steps=10)
+        
+        assert should_continue(state) == "end"
