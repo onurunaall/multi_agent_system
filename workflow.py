@@ -1,8 +1,3 @@
-"""
-Main workflow orchestration module.
-Assembles sub-agents under a supervisor and adds outer logic layers.
-"""
-
 from typing import Optional
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
@@ -18,17 +13,13 @@ from schemas import State, UserInput, UserProfile
 from agents.invoice_agent import create_invoice_agent
 from agents.music_agent import create_music_agent_graph
 
-# ─────────────────────────── sub-agents ────────────────────────────
 invoice_agent = create_invoice_agent()
 music_agent = create_music_agent_graph()
 
-# ───────────────────── supervisor prompt & object ──────────────────
 supervisor_prompt = """
-You are an expert customer-support assistant for a digital music store.
-You supervise two specialised sub-agents:
-
-1. music_catalog_information_subagent – looks up catalogue data and user music preferences.
-2. invoice_information_subagent     – retrieves customer invoices and purchase history.
+You are an expert customer-support assistant for a digital music store. You supervise two specialised sub-agents:
+1. music_catalog_information_subagent which looks up catalogue data and user music preferences.
+2. invoice_information_subagent which retrieves customer invoices and purchase history.
 
 Given the conversation so far, decide which sub-agent should act next.
 Multiple steps may be required to fully satisfy a request.
@@ -63,24 +54,23 @@ def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
 
     return None
 
+# Forced to output data matching the UserInput schema.
 structured_llm = llm.with_structured_output(schema=UserInput)
-structured_system_prompt = (
-    "Extract the customer's identifier (ID, e-mail, phone) from the messages. "
-    "If none is present, return an empty string."
-)
+structured_system_prompt = ("Extract the customer's identifier (ID, e-mail, phone) from the messages. If none is present, return an empty string.")
 
+# Checks if a user is verified before letting the workflow continue.
 def verify_info(state: State, config: RunnableConfig):
     """Verify customer identity or prompt for it."""
     if state.get("customer_id") is None:
         guidance = (
-            "Before helping, you must verify the customer's identity "
-            "(ID, e-mail, or phone). If it's missing, ask. "
-            "If the supplied identifier is invalid, ask for a correction."
+          "Before helping, you must verify the customer's identity "
+          "(ID, e-mail, or phone). If it's missing, ask. "
+          "If the supplied identifier is invalid, ask for a correction."
         )
+
+        # Get the most recent message from the conversation history
         user_msg = state["messages"][-1]
-        parsed = structured_llm.invoke(
-            [SystemMessage(content=structured_system_prompt), user_msg]
-        )
+        parsed = structured_llm.invoke([SystemMessage(content=structured_system_prompt), user_msg])
         identifier = parsed.identifier
 
         customer_id = (get_customer_id_from_identifier(identifier) if identifier else None)
@@ -88,12 +78,10 @@ def verify_info(state: State, config: RunnableConfig):
             confirm = SystemMessage(content=f"Account verified. Customer ID: {customer_id}.")
             return {"customer_id": customer_id, "messages": [confirm]}
         else:
-            follow_up = llm.invoke(
-                [SystemMessage(content=guidance)] + state["messages"]
-            )
+            follow_up = llm.invoke([SystemMessage(content=guidance)] + state["messages"])
             return {"messages": [follow_up]}
     
-    # already verified
+    # Already verified
     return None
 
 def human_input(state: State, config: RunnableConfig):
@@ -103,7 +91,8 @@ def human_input(state: State, config: RunnableConfig):
 
 def should_interrupt(state: State, config: RunnableConfig):
     """Branch: continue if verified else interrupt."""
-    return "continue" if state.get("customer_id") is not None else "interrupt"
+    action = "continue" if state.get("customer_id") is not None else "interrupt" 
+    return action
 
 def format_user_memory(user_data):
     profile: UserProfile = user_data["memory"]
@@ -157,11 +146,11 @@ multi_agent_final.add_node("supervisor", supervisor_prebuilt)
 multi_agent_final.add_node("create_memory", create_memory)
 
 multi_agent_final.add_edge(START, "verify_info")
-multi_agent_final.add_conditional_edges(
-    "verify_info",
-    should_interrupt,
-    {"continue": "load_memory", "interrupt": "human_input"},
-)
+
+multi_agent_final.add_conditional_edges("verify_info",
+                                        should_interrupt,
+                                        {"continue": "load_memory", "interrupt": "human_input"})
+
 multi_agent_final.add_edge("human_input", "verify_info")
 multi_agent_final.add_edge("load_memory", "supervisor")
 multi_agent_final.add_edge("supervisor", "create_memory")
