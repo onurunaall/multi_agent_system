@@ -1,8 +1,3 @@
-"""
-Data structures and schemas for the CoderLLM application.
-Single source of truth for all data contracts.
-"""
-
 from typing import TypedDict, Annotated, List
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
@@ -22,13 +17,11 @@ class UserInput(BaseModel):
 """
 Schema for extracting customer identifiers during verification.
 """
-identifier: str = Field(
-description=“The customer ID or name provided by the user”
-)
+identifier: str = Field(description="The customer ID or name provided by the user")
 
 class UserProfile(BaseModel):
 """
 Schema for storing user preferences in long-term memory.
 """
-customer_id: str = Field(description=“The customer’s ID”)
-music_preferences: List[str] = Field(description=“Customer’s music preferences and listening history”)
+customer_id: str = Field(description="The customer’s ID")
+music_preferences: List[str] = Field(description="Customer’s music preferences and listening history")
