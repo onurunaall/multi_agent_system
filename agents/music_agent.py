@@ -53,13 +53,15 @@ def get_tracks_by_artist(artist: str):
 def get_songs_by_genre(genre: str):
     """
     Fetch songs that match a specific genre.
-
     Args:
         genre (str): The genre of the songs to fetch.
-
     Returns:
         list[dict]: A list of songs that match the specified genre.
     """
+    if not genre or not genre.strip():
+        return "Genre name is required"
+        
+    genre = genre.strip()
     genre_id_query = (
         f"SELECT GenreId FROM Genre WHERE Name LIKE '%{genre}%'"
     )
