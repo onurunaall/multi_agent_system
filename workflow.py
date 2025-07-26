@@ -43,7 +43,8 @@ def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
 
     try:
         if identifier.startswith("+"):
-            row = db.run(f"SELECT CustomerId FROM Customer WHERE Phone = '{identifier}';")
+            row = db.run("SELECT CustomerId FROM Customer WHERE Phone = ?;", (identifier,))
+
             if row:
                 parsed = ast.literal_eval(row)
                 if parsed:
