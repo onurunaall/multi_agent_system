@@ -1,8 +1,3 @@
-"""
-Music catalog sub-agent implementation.
-Built from scratch to demonstrate core ReAct agent components in LangGraph.
-"""
-
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
@@ -12,34 +7,48 @@ import ast
 from config import llm, checkpointer, store, db
 from schemas import State
 
+# Find all albums by a specific artist.
 @tool
 def get_albums_by_artist(artist: str):
     """Get albums by an artist."""
-    # Join Album and Artist tables to fetch album titles for a given artist.
+    if not artist or not artist.strip():
+        raise ValueError("Artist name required")
+
+    artist = artist.strip()
+
     return db.run(
-        f"""
+        """
         SELECT Album.Title, Artist.Name
         FROM Album
         JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        WHERE Artist.Name LIKE '%{artist}%';
+        WHERE Artist.Name LIKE ?
         """,
-        include_columns=True)
+        [f"%{artist}%"],
+        include_columns=True
+    )
 
-
+# Get all the songs by a given artist.
 @tool
 def get_tracks_by_artist(artist: str):
     """Get songs by an artist (or similar artists)."""
-    # Join Album, Artist and Track tables to fetch song names for a given artist.
+    if not artist or not artist.strip():
+        raise ValueError("Artist name required")
+    
+    artist = artist.strip()
+    
     return db.run(
-        f"""
+        """
         SELECT Track.Name AS SongName, Artist.Name AS ArtistName
         FROM Album
         LEFT JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        LEFT JOIN Track  ON Track.AlbumId   = Album.AlbumId
-        WHERE Artist.Name LIKE '%{artist}%';
+        LEFT JOIN Track ON Track.AlbumId = Album.AlbumId
+        WHERE Artist.Name LIKE ?
         """,
-        include_columns=True)
+        [f"%{artist}%"],
+        include_columns=True
+    )
 
+# Find songs that belong to a specific genre.
 @tool
 def get_songs_by_genre(genre: str):
     """
@@ -68,8 +77,7 @@ def get_songs_by_genre(genre: str):
         LEFT JOIN Album  ON Track.AlbumId  = Album.AlbumId
         LEFT JOIN Artist ON Album.ArtistId = Artist.ArtistId
         WHERE Track.GenreId IN ({genre_id_list})
-        GROUP BY Artist.Name
-        LIMIT 8;
+        GROUP BY Artist.Name;
     """
     songs_raw = db.run(songs_query, include_columns=True)
 
@@ -82,10 +90,11 @@ def get_songs_by_genre(genre: str):
 def check_for_songs(song_title: str):
     """Check if a song exists by its name."""
     return db.run(
-        f"""
+        """
         SELECT * FROM Track
-        WHERE Name LIKE '%{song_title}%';
+        WHERE Name LIKE ?;
         """,
+        [f"%{song_title}%"],
         include_columns=True,
     )
 
@@ -95,9 +104,8 @@ llm_with_music_tools = llm.bind_tools(music_tools)
 music_tool_node = ToolNode(music_tools)
 
 def generate_music_assistant_prompt(memory: str = "None") -> str:
-    return f"""
-You are one of several specialised assistants; your focus is the music-catalog.
-If the catalog is missing an artist’s material, simply say so.  
+    music_assistant_prompt =  f"""
+You are one of several specialised assistants; your focus is the music-catalog. If the catalog is missing an artist’s material, simply say so.  
 Prior saved user preferences: {memory}
 
 CORE RESPONSIBILITIES
@@ -112,18 +120,14 @@ SEARCH GUIDELINES
 
 Message history follows.
 """
+    return music_assistant_prompt
 
 def music_assistant(state: State):
-    """
-    The reasoning node for the music assistant.
-    Generates tool calls or a final answer.
-    """
+    """The reasoning node for the music assistant. Generates tool calls or a final answer."""
     memory = state.get("loaded_memory", "None")
     music_assistant_prompt = generate_music_assistant_prompt(memory)
 
-    response = llm_with_music_tools.invoke(
-        [SystemMessage(content=music_assistant_prompt)] + state["messages"]
-    )
+    response = llm_with_music_tools.invoke([SystemMessage(content=music_assistant_prompt)] + state["messages"])
     return {"messages": [response]}
 
 def should_continue(state: State):
@@ -139,11 +143,9 @@ def create_music_agent_graph():
     graph.add_node("music_tool_node", music_tool_node)
 
     graph.add_edge(START, "music_assistant")
-    graph.add_conditional_edges(
-        "music_assistant",
-        should_continue,
-        {"continue": "music_tool_node", "end": END},
-    )
+    graph.add_conditional_edges("music_assistant",
+                                should_continue,
+                                {"continue": "music_tool_node", "end": END})
     graph.add_edge("music_tool_node", "music_assistant")
 
     return graph.compile(
