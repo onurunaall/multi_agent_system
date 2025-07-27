@@ -62,26 +62,25 @@ def get_songs_by_genre(genre: str):
         return "Genre name is required"
         
     genre = genre.strip()
-    genre_id_query = (
-        f"SELECT GenreId FROM Genre WHERE Name LIKE '%{genre}%'"
-    )
-    genre_ids_raw = db.run(genre_id_query)
-
+    genre_ids_raw = db.run("SELECT GenreId FROM Genre WHERE Name LIKE ?",
+                           [f"%{genre}%"])
+    
     if not genre_ids_raw:
         return f"No songs found for the genre: {genre}"
 
     genre_ids = ast.literal_eval(genre_ids_raw)
-    genre_id_list = ", ".join(str(gid[0]) for gid in genre_ids)
+    genre_id_values = [gid[0] for gid in genre_ids]
+    placeholders = ", ".join("?" * len(genre_id_values))
 
     songs_query = f"""
         SELECT Track.Name AS Song, Artist.Name AS Artist
         FROM Track
         LEFT JOIN Album  ON Track.AlbumId  = Album.AlbumId
         LEFT JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        WHERE Track.GenreId IN ({genre_id_list})
+        WHERE Track.GenreId IN ({placeholders})
         GROUP BY Artist.Name;
     """
-    songs_raw = db.run(songs_query, include_columns=True)
+    songs_raw = db.run(songs_query, genre_id_values, include_columns=True)
 
     if not songs_raw:
         return f"No songs found for the genre: {genre}"
