@@ -121,27 +121,32 @@ class TestWorkflowNodes:
 
     def _dummy_state(self):
         return State(customer_id='123', messages=[], loaded_memory=[], remaining_steps=5)
-
+    
     def test_load_memory_finds_profile(self):
         """load_memory returns formatted user preferences string."""
         mock_store = MagicMock()
         mock_profile = UserProfile(customer_id='123', music_preferences=['Rock', 'Jazz'])
-        mock_store.get.return_value = {'memory': mock_profile}
+       
+        mock_store.get.return_value = MagicMock(value={'memory': mock_profile})
 
-        result = load_memory(self._dummy_state(), mock_store)
-
+        result = load_memory(self._dummy_state(), None, mock_store)    
         assert result['loaded_memory'] == 'Music Preferences: Rock, Jazz'
-
-    @patch('workflow.structured_llm')
+            
+    @patch('workflow.llm')
     def test_create_memory_updates_profile(self, mock_llm):
-        """create_memory stores new user profile in vector store."""
+        """create_memory stores new user profile in the store."""
         mock_store = MagicMock()
         new_profile = UserProfile(customer_id='123', music_preferences=['Classical'])
+        
         mock_llm.with_structured_output.return_value.invoke.return_value = new_profile
-
-        create_memory(self._dummy_state(), mock_store)
-
+    
+        create_memory(self._dummy_state(), None, mock_store)
+    
         mock_store.put.assert_called_once()
-        namespace, data = mock_store.put.call_args[0]
-        assert namespace == 'memory'
-        assert data['music_preferences'] == ['Classical']
+        # The first argument to put() is the namespace tuple
+        namespace = mock_store.put.call_args[0][0]
+        # The third argument is the data dictionary
+        data_to_store = mock_store.put.call_args[0][2]
+    
+        assert namespace == ("memory_profile", "123")
+        assert data_to_store['memory'].music_preferences == ['Classical']
