@@ -116,8 +116,8 @@ class TestWorkflowNodes:
 
         result = verify_info(state, None)
 
-        assert isinstance(result, AIMessage)
-        assert 'provide' in result.content.lower()
+        assert isinstance(result['messages'][-1], AIMessage)
+        assert 'provide' in result['messages'][-1].content.lower()
 
     def _dummy_state(self):
         return State(customer_id='123', messages=[], loaded_memory=[], remaining_steps=5)
