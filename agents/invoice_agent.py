@@ -97,6 +97,5 @@ def create_invoice_agent():
                               tools=invoice_tools,
                               name="invoice_information_subagent",
                               prompt=invoice_subagent_prompt,
-                              state_schema=State,
                               checkpointer=checkpointer,
                               store=store)
