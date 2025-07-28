@@ -2,6 +2,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
 from config import llm, checkpointer, store, db
+from database import db 
 from schemas import State
 
 @tool
