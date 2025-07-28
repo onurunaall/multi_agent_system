@@ -5,6 +5,7 @@ description = "A sophisticated multi-agent customer support system using LangGra
 authors = ["Onur Ünal <onur.unal402@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+package-mode = false
 repository = "https://github.com/yourusername/multi-agent-system"
 
 [tool.poetry.dependencies]
