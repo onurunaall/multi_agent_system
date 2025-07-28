@@ -6,21 +6,9 @@ authors = ["Your Name <your.email@example.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/yourusername/multi-agent-system"
-keywords = ["langchain", "langgraph", "multi-agent", "ai", "customer-support"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.11"
 langchain = "0.3.12"
 langchain-community = "0.3.12"
 langchain-openai = "0.2.14"
