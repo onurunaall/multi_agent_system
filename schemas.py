@@ -1,13 +1,13 @@
 from typing import TypedDict, Annotated, List
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
-from langgraph.graph.message import AnyMessage, add_messages
+from langgraph.graph.message import AnyMessage
 from langgraph.managed import RemainingSteps
 
 class State(TypedDict):
   """Central state schema that flows through the entire agent graph."""
   customer_id: str
-  messages: Annotated[List[AnyMessage], add_messages]
+  messages: List[AnyMessage]
   loaded_memory: List[str]
   remaining_steps: Annotated[int, RemainingSteps]
 
