@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-from workflow import get_customer_id_from_identifier, verify_info, human_input, should_interrupt, format_user_memory, load_memory, create_memory)
+from workflow import get_customer_id_from_identifier, verify_info, human_input, should_interrupt, format_user_memory, load_memory, create_memory
 from schemas import State, UserProfile
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
