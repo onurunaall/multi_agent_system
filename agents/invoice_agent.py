@@ -96,6 +96,7 @@ def create_invoice_agent():
     return create_react_agent(llm,
                               tools=invoice_tools,
                               name="invoice_information_subagent",
+                            	  messages_key="messages",
                               prompt=invoice_subagent_prompt,
                               checkpointer=checkpointer,
                               store=store)
