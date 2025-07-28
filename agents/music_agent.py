@@ -149,9 +149,7 @@ def create_music_agent_graph():
                                 should_continue,
                                 {"continue": "music_tool_node", "end": END})
     graph.add_edge("music_tool_node", "music_assistant")
-
-    return graph.compile(
-        name="music_catalog_subagent",
-        checkpointer=checkpointer,
-        store=store,
-    )
+	
+    grp = graph.compile(name="music_catalog_subagent", checkpointer=checkpointer, store=store).with_config({"messages_key": "messages"})
+    
+    return grp 
