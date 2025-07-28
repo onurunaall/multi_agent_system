@@ -27,7 +27,6 @@ jobs:
       - name: Create .env file from Secrets
         run: |
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
-          echo "OPENAI_API_BASE=${{ secrets.OPENAI_API_BASE }}" >> .env
       
       - name: Run Tests
         run: poetry run pytest
