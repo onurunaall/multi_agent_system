@@ -4,7 +4,8 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import ast
 
-from config import llm, checkpointer, store, db
+from config import llm, checkpointer, store
+from database import db
 from schemas import State
 
 # Find all albums by a specific artist.
