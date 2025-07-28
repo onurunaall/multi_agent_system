@@ -9,7 +9,7 @@ repository = "https://github.com/yourusername/multi-agent-system"
 
 [tool.poetry.dependencies]
 python = ">=3.11"
-langchain = "0.3.12"
+langchain = ">0.4.6"
 langchain-community = "0.3.12"
 langchain-openai = "0.2.14"
 langchain-groq = "0.2.14"
