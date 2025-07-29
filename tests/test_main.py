@@ -20,7 +20,7 @@ class TestMain:
         await main()
 
         mock_graph.astream_events.assert_not_called()
-        mock_print.assert_any_call("Exiting...")
+        mock_print.assert_any_call("Thank you for using Customer Support. Goodbye!")
 
     @pytest.mark.asyncio
     @patch('main.multi_agent_final_graph')
@@ -30,7 +30,7 @@ class TestMain:
         """Test normal conversation flow."""
         mock_input.side_effect = ['Hello', 'exit']
 
-        async def mock_stream():
+        async def mock_stream(*args, **kwargs):
             yield {
                 "event": "on_chain_end",
                 "data": {"output": {"messages": [AIMessage(content="Hello! How can I help you?")]}}
@@ -52,14 +52,14 @@ class TestMain:
         """Test interrupt-and-resume flow with two turns."""
         mock_input.side_effect = ['I need my last invoice', 'some-email@example.com', 'exit']
 
-        async def first_stream(*_):
+        async def first_stream(*args, **kwargs):
             yield {
                 'event': 'on_chain_stream',
-                'data': {'node_path': 'human_input',
-                         'output': {'content': 'May I have your e-mail?'}}
+                'name': 'human_input',
+                'data': {'chunk': {'messages': [AIMessage(content='May I have your e-mail?')]}}
             }
 
-        async def second_stream(*_):
+        async def second_stream(*args, **kwargs):
             yield {
                 'event': 'on_chain_end',
                 'data': {'output': {'messages': [AIMessage(content='Your last invoice total is $42.00')]}}

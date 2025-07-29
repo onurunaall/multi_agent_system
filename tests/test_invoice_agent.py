@@ -11,7 +11,7 @@ class TestInvoiceTools:
         """Test getting invoices sorted by date."""
         mock_db.run.return_value = "[{'InvoiceId': 1, 'Total': 10.99}]"
 
-        get_invoices_by_customer_sorted_by_date("123")
+        get_invoices_by_customer_sorted_by_date({"customer_id": "123"})
 
         mock_db.run.assert_called_once()
         query, params = mock_db.run.call_args[0]
@@ -24,7 +24,7 @@ class TestInvoiceTools:
         """Test getting invoices sorted by unit price."""
         mock_db.run.return_value = "[{'InvoiceId': 1, 'UnitPrice': 0.99}]"
 
-        result = get_invoices_sorted_by_unit_price("123")
+        result = get_invoices_sorted_by_unit_price({"customer_id": "123"})
 
         mock_db.run.assert_called_once()
         query, params = mock_db.run.call_args[0]
@@ -37,7 +37,7 @@ class TestInvoiceTools:
         """Test getting employee info when found."""
         mock_db.run.return_value = "[{'FirstName': 'John', 'Title': 'Sales', 'Email': 'john@test.com'}]"
 
-        result = get_employee_by_invoice_and_customer("1", "123")
+        result = get_employee_by_invoice_and_customer({"invoice_id": "1", "customer_id": "123"})
 
         assert result == "[{'FirstName': 'John', 'Title': 'Sales', 'Email': 'john@test.com'}]"
 
@@ -46,7 +46,7 @@ class TestInvoiceTools:
         """Test getting employee info when not found."""
         mock_db.run.return_value = ""
 
-        result = get_employee_by_invoice_and_customer("999", "123")
+        result = get_employee_by_invoice_and_customer({"invoice_id": "999", "customer_id": "123"})
 
         assert "No employee found" in result
         assert "invoice 999" in result

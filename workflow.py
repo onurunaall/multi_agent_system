@@ -101,8 +101,7 @@ def verify_info(state: State, config: RunnableConfig):
 
 def human_input(state: State, config: RunnableConfig):
     """Interrupt the graph and await fresh user input."""
-    msg = interrupt("Please provide input.")
-    return {"messages": [msg]}
+    return interrupt("Please provide input.")
 
 def should_interrupt(state: State, config: RunnableConfig):
     """Branch: continue if verified else interrupt."""
@@ -119,7 +118,10 @@ def load_memory(state: State, config: RunnableConfig, store: BaseStore):
     """Load saved user preferences (if any)."""
     uid = state["customer_id"]
     ns = ("memory_profile", uid)
-    entry = store.get(ns, "user_memory")
+    # The 'mget' method returns a list of values for the given keys
+    entries = store.mget([ns])
+    # We are only getting one key, so we take the first element
+    entry = entries[0] if entries else None
     formatted = format_user_memory(entry.value) if entry and entry.value else ""
     return {"loaded_memory": formatted}
 
@@ -143,7 +145,8 @@ def create_memory(state: State, config: RunnableConfig, store: BaseStore):
     uid = str(state["customer_id"])
     ns = ("memory_profile", uid)
 
-    entry = store.get(ns, "user_memory")
+    entries = store.mget([ns])
+    entry = entries[0] if entries else None
     current_pref = ""
     if entry and entry.value:
         prof: UserProfile = entry.value["memory"]
@@ -151,7 +154,7 @@ def create_memory(state: State, config: RunnableConfig, store: BaseStore):
 
     sys = SystemMessage(content=create_memory_prompt.format(conversation=state["messages"], memory_profile=current_pref))
     new_profile = llm.with_structured_output(UserProfile).invoke([sys])
-    store.put(ns, "user_memory", {"memory": new_profile})
+    store.put([(ns, {"memory": new_profile})])
 
 multi_agent_final = StateGraph(State)
 multi_agent_final.add_node("verify_info", verify_info)

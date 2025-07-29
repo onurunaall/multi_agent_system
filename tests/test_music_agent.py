@@ -3,6 +3,8 @@ from unittest.mock import patch, MagicMock
 from agents.music_agent import get_albums_by_artist, get_tracks_by_artist, get_songs_by_genre, check_for_songs, generate_music_assistant_prompt, should_continue, create_music_agent_graph
 from schemas import State
 from langchain_core.messages import AIMessage
+from langchain_core.tools import tool
+from langchain_core.messages.tool import ToolCall
 
 
 class TestMusicTools:
@@ -100,7 +102,7 @@ class TestMusicAssistant:
     def test_should_continue_with_tool_calls(self):
         """Test should_continue when tool calls exist."""
         state = State(customer_id="123",
-                      messages=[AIMessage(content="", tool_calls=[{"name": "test"}])],
+                      messages=[AIMessage(content="", tool_calls=[ToolCall(name="test", args={}, id="test_id")])],
                       loaded_memory="",
                       remaining_steps=10)
 

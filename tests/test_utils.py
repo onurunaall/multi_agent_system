@@ -19,7 +19,7 @@ class TestUtils:
         mock_file().write.assert_called_once_with(b"PNG_DATA")
         mock_print.assert_called_with("Graph diagram saved to test.png")
     
-    @patch('utils.nest_asyncio')
+    @patch('utils.nest_asyncio', create=True)
     @patch('builtins.open', new_callable=mock_open)
     @patch('utils.print')
     def test_save_graph_diagram_fallback(self, mock_print, mock_file, mock_nest):
