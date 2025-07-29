@@ -29,13 +29,15 @@ Multiple steps may be required to fully satisfy a request.
 """
 
 # Create the supervisor
-supervisor_prebuilt_workflow = create_supervisor(
+# The create_supervisor function returns a graph, which must be compiled.
+supervisor_graph = create_supervisor(
     agents=[invoice_agent, music_agent],
     output_mode="last_message",
     model=llm,
     prompt=supervisor_prompt,
     state_schema=State
 )
+supervisor_prebuilt_workflow = supervisor_graph.compile()
 
 # Wrap the supervisor to pass the full state
 def run_supervisor(state: State):
