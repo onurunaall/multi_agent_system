@@ -7,7 +7,7 @@ class State(TypedDict):
     """Central state schema that flows through the entire agent graph."""
     customer_id: str
     messages: List[AnyMessage]
-    loaded_memory: List[str]
+    loaded_memory: str
     remaining_steps: Annotated[int, RemainingSteps]
 
 class UserInput(BaseModel):
