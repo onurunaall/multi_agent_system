@@ -129,7 +129,7 @@ class TestWorkflowNodes:
         mock_store = MagicMock()
         mock_profile = UserProfile(customer_id='123', music_preferences=['Rock', 'Jazz'])
        
-        mock_store.get.return_value = MagicMock(value={'memory': mock_profile})
+        mock_store.mget.return_value = [{'memory': mock_profile}]
 
         result = load_memory(self._dummy_state(), None, mock_store)    
         assert result['loaded_memory'] == 'Music Preferences: Rock, Jazz'
@@ -138,6 +138,7 @@ class TestWorkflowNodes:
     def test_create_memory_updates_profile(self, mock_llm):
         """create_memory stores new user profile in the store."""
         mock_store = MagicMock()
+        mock_store.mget.return_value = [None]  # No existing profile
         new_profile = UserProfile(customer_id='123', music_preferences=['Classical'])
         
         mock_llm.with_structured_output.return_value.invoke.return_value = new_profile
@@ -145,10 +146,10 @@ class TestWorkflowNodes:
         create_memory(self._dummy_state(), None, mock_store)
     
         mock_store.put.assert_called_once()
-        # The first argument to put() is the namespace tuple
-        namespace = mock_store.put.call_args[0][0]
-        # The third argument is the data dictionary
-        data_to_store = mock_store.put.call_args[0][2]
+        
+        # The first argument to put() is a list of tuples
+        args_list = mock_store.put.call_args[0][0]
+        key, data_to_store = args_list[0]
     
-        assert namespace == ("memory_profile", "123")
+        assert key == "memory_profile_123"
         assert data_to_store['memory'].music_preferences == ['Classical']

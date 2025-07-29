@@ -109,20 +109,21 @@ def should_interrupt(state: State, config: RunnableConfig):
     return action
 
 def format_user_memory(user_data):
-    profile: UserProfile = user_data["memory"]
-    if profile.music_preferences:
-        return f"Music Preferences: {', '.join(profile.music_preferences)}"
+    if user_data and "memory" in user_data:
+        profile: UserProfile = user_data["memory"]
+        if profile.music_preferences:
+            return f"Music Preferences: {', '.join(profile.music_preferences)}"
     return ""
 
 def load_memory(state: State, config: RunnableConfig, store: BaseStore):
     """Load saved user preferences (if any)."""
     uid = state["customer_id"]
-    ns = ("memory_profile", uid)
+    key = f"memory_profile_{uid}"
     # The 'mget' method returns a list of values for the given keys
-    entries = store.mget([ns])
+    entries = store.mget([key])
     # We are only getting one key, so we take the first element
-    entry = entries[0] if entries else None
-    formatted = format_user_memory(entry.value) if entry and entry.value else ""
+    entry_value = entries[0] if entries else None
+    formatted = format_user_memory(entry_value) if entry_value else ""
     return {"loaded_memory": formatted}
 
 create_memory_prompt = """
@@ -143,18 +144,18 @@ Existing profile:
 
 def create_memory(state: State, config: RunnableConfig, store: BaseStore):
     uid = str(state["customer_id"])
-    ns = ("memory_profile", uid)
+    key = f"memory_profile_{uid}"
 
-    entries = store.mget([ns])
-    entry = entries[0] if entries else None
+    entries = store.mget([key])
+    entry_value = entries[0] if entries else None
     current_pref = ""
-    if entry and entry.value:
-        prof: UserProfile = entry.value["memory"]
+    if entry_value and "memory" in entry_value:
+        prof: UserProfile = entry_value["memory"]
         current_pref = ", ".join(prof.music_preferences or [])
 
     sys = SystemMessage(content=create_memory_prompt.format(conversation=state["messages"], memory_profile=current_pref))
     new_profile = llm.with_structured_output(UserProfile).invoke([sys])
-    store.put([(ns, {"memory": new_profile})])
+    store.put([(key, {"memory": new_profile})])
 
 multi_agent_final = StateGraph(State)
 multi_agent_final.add_node("verify_info", verify_info)
