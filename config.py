@@ -1,6 +1,6 @@
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_community.storage import LocalFileStore
+from langchain.storage import LocalFileStore
 from dotenv import load_dotenv
 import os
 
