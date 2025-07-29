@@ -1,4 +1,4 @@
-.PHONY: help install test lint format clean build docs
+.PHONY: help install test lint format clean build docs run
 
 help:
 	@echo "Available commands:"

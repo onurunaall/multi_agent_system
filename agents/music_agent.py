@@ -78,8 +78,7 @@ def get_songs_by_genre(genre: str):
         FROM Track
         LEFT JOIN Album  ON Track.AlbumId  = Album.AlbumId
         LEFT JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        WHERE Track.GenreId IN ({placeholders})
-        GROUP BY Artist.Name;
+        WHERE Track.GenreId IN ({placeholders});
     """
     songs_raw = db.run(songs_query, genre_id_values, include_columns=True)
 
@@ -107,7 +106,7 @@ music_tool_node = ToolNode(music_tools)
 
 def generate_music_assistant_prompt(memory: str = "None") -> str:
     music_assistant_prompt =  f"""
-You are one of several specialised assistants; your focus is the music-catalog. If the catalog is missing an artist’s material, simply say so.  
+You are one of several specialised assistants; your focus is the music-catalog. If the catalog is missing an artist's material, simply say so.  
 Prior saved user preferences: {memory}
 
 CORE RESPONSIBILITIES
@@ -152,4 +151,4 @@ def create_music_agent_graph():
 	
     grp = graph.compile(name="music_catalog_subagent", checkpointer=checkpointer, store=store).with_config({"messages_key": "messages"})
     
-    return grp 
+    return grp

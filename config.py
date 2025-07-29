@@ -1,12 +1,17 @@
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.store.memory import InMemoryStore
+from langchain_community.storage import LocalFileStore
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
+
+# Create the storage directory if it doesn't exist
+if not os.path.exists("./storage"):
+    os.makedirs("./storage")
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # Initialize memory components
-checkpointer = MemorySaver()  # For short-term memory/state management
-store = InMemoryStore()  # For long-term memory
+checkpointer = MemorySaver()
+store = LocalFileStore("./storage")

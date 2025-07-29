@@ -3,7 +3,6 @@ from langgraph.prebuilt import create_react_agent
 
 from config import llm, checkpointer, store
 from database import db
-from schemas import State
 
 @tool
 def get_invoices_by_customer_sorted_by_date(customer_id: str) -> list[dict]:
@@ -24,7 +23,6 @@ def get_invoices_by_customer_sorted_by_date(customer_id: str) -> list[dict]:
         [customer_id]
     )
 
-
 @tool
 def get_invoices_sorted_by_unit_price(customer_id: str) -> list[dict]:
     """
@@ -43,7 +41,6 @@ def get_invoices_sorted_by_unit_price(customer_id: str) -> list[dict]:
     """
     return db.run(query, [customer_id])
 
-
 @tool
 def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> dict:
     """
@@ -56,7 +53,7 @@ def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> d
     """
     if not invoice_id or not customer_id:
         return "Both invoice ID and customer ID are required"
-        
+
     query = """
         SELECT Employee.FirstName, Employee.Title, Employee.Email
         FROM Employee
@@ -77,7 +74,8 @@ invoice_tools = [get_invoices_by_customer_sorted_by_date,
                  get_employee_by_invoice_and_customer]
 
 invoice_subagent_prompt = """
-You are the invoice-information specialist. Only respond to invoice-related queries.
+You are the invoice-information specialist. Your goal is to answer invoice-related queries for the customer.
+The customer's ID is available in the state under the 'customer_id' key. You must use this ID for all tool calls.
 
 TOOLS
 - get_invoices_by_customer_sorted_by_date
@@ -85,10 +83,10 @@ TOOLS
 - get_employee_by_invoice_and_customer
 
 CORE RESPONSIBILITIES
-- Retrieve and explain invoice data (dates, totals, items, employees, etc.)
-- Maintain a professional and patient tone
+- Retrieve and explain invoice data (dates, totals, items, employees, etc.) for the provided customer_id.
+- Maintain a professional and patient tone.
 
-If the data cannot be retrieved, apologise and ask if the customer would like to search something else.
+If the data cannot be retrieved, apologize and ask if the customer would like to search for something else.
 """
 
 def create_invoice_agent():
@@ -96,7 +94,7 @@ def create_invoice_agent():
     return create_react_agent(llm,
                               tools=invoice_tools,
                               name="invoice_information_subagent",
-                            	  messages_key="messages",
+                              messages_key="messages",
                               prompt=invoice_subagent_prompt,
                               checkpointer=checkpointer,
                               store=store)

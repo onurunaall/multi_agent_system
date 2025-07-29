@@ -11,13 +11,13 @@ class TestInvoiceTools:
         """Test getting invoices sorted by date."""
         mock_db.run.return_value = "[{'InvoiceId': 1, 'Total': 10.99}]"
 
-        result = get_invoices_by_customer_sorted_by_date("123")
+        get_invoices_by_customer_sorted_by_date("123")
 
         mock_db.run.assert_called_once()
         query, params = mock_db.run.call_args[0]
-        assert "CustomerId = ?" in query
-        assert params == ["123"]
+        assert "WHERE CustomerId = ?" in query
         assert "ORDER BY InvoiceDate DESC" in query
+        assert params == ["123"]
 
     @patch('agents.invoice_agent.db')
     def test_get_invoices_sorted_by_unit_price(self, mock_db):

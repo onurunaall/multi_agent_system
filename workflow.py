@@ -1,5 +1,6 @@
-from typing import Optional, Literal
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from typing import Optional
+from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.runnables import RunnableLambda
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
 from langgraph_supervisor import create_supervisor
@@ -13,9 +14,11 @@ from schemas import State, UserInput, UserProfile
 from agents.invoice_agent import create_invoice_agent
 from agents.music_agent import create_music_agent_graph
 
+# Create agents
 invoice_agent = create_invoice_agent()
 music_agent = create_music_agent_graph()
 
+# Supervisor prompt
 supervisor_prompt = """
 You are an expert customer-support assistant for a digital music store. You supervise two specialised sub-agents:
 1. music_agent which looks up catalogue data and user music preferences.
@@ -25,39 +28,46 @@ Given the conversation so far, decide which sub-agent should act next.
 Multiple steps may be required to fully satisfy a request.
 """
 
-supervisor_prebuilt_workflow = create_supervisor(agents=[invoice_agent, music_agent],
-                                                 output_mode="last_message",
-                                                 model=llm,
-                                                 prompt=supervisor_prompt,
-                                                 state_schema=State)
+# Create the supervisor
+supervisor_prebuilt_workflow = create_supervisor(
+    agents=[invoice_agent, music_agent],
+    output_mode="last_message",
+    model=llm,
+    prompt=supervisor_prompt,
+    state_schema=State
+)
 
-supervisor_prebuilt = supervisor_prebuilt_workflow.compile(name="music_catalog_subagent", checkpointer=checkpointer, store=store)
+# Wrap the supervisor to pass the full state
+def run_supervisor(state: State):
+    return supervisor_prebuilt_workflow.invoke(state)
+
+supervisor_node = RunnableLambda(run_supervisor)
 
 def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
     """Resolve a customer identifier (ID, e-mail, phone) to CustomerId."""
     if not identifier:
         return None
-        
+
     if identifier.isdigit():
         return int(identifier)
 
     try:
         if identifier.startswith("+"):
             row = db.run("SELECT CustomerId FROM Customer WHERE Phone = ?;", (identifier,))
-
             if row:
                 parsed = ast.literal_eval(row)
                 if parsed:
                     return parsed[0][0]
 
         if "@" in identifier:
-            row = db.run(f"SELECT CustomerId FROM Customer WHERE Email = '{identifier}';")
+            row = db.run("SELECT CustomerId FROM Customer WHERE Email = ?;", (identifier,))
             if row:
                 parsed = ast.literal_eval(row)
                 if parsed:
                     return parsed[0][0]
     except Exception as e:
         print(f"Error looking up customer: {e}")
+    return None
 
 # Forced to output data matching the UserInput schema.
 structured_llm = llm.with_structured_output(schema=UserInput)
@@ -85,7 +95,7 @@ def verify_info(state: State, config: RunnableConfig):
         else:
             follow_up = llm.invoke([SystemMessage(content=guidance)] + state["messages"])
             return {"messages": [follow_up]}
-    
+
     # Already verified
     return None
 
@@ -96,7 +106,7 @@ def human_input(state: State, config: RunnableConfig):
 
 def should_interrupt(state: State, config: RunnableConfig):
     """Branch: continue if verified else interrupt."""
-    action = "continue" if state.get("customer_id") is not None else "interrupt" 
+    action = "continue" if state.get("customer_id") is not None else "interrupt"
     return action
 
 def format_user_memory(user_data):
@@ -147,7 +157,7 @@ multi_agent_final = StateGraph(State)
 multi_agent_final.add_node("verify_info", verify_info)
 multi_agent_final.add_node("human_input", human_input)
 multi_agent_final.add_node("load_memory", load_memory)
-multi_agent_final.add_node("supervisor", supervisor_prebuilt)
+multi_agent_final.add_node("supervisor", supervisor_node)
 multi_agent_final.add_node("create_memory", create_memory)
 
 multi_agent_final.add_edge(START, "verify_info")
