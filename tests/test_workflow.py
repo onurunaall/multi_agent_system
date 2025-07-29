@@ -1,8 +1,11 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-from workflow import get_customer_id_from_identifier, verify_info, human_input, should_interrupt, format_user_memory, load_memory, create_memory
+from workflow import get_customer_id_from_identifier, verify_info, should_interrupt, format_user_memory, load_memory, \
+    create_memory
 from schemas import State, UserProfile
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+import json
+
 
 class TestWorkflowHelpers:
     """Test cases for workflow helper functions."""
@@ -21,7 +24,7 @@ class TestWorkflowHelpers:
 
         assert result == 456
         query, params = mock_db.run.call_args[0]
-        
+
         assert "WHERE Phone = ?" in query
         assert params == ("+1234567890",)
 
@@ -66,16 +69,16 @@ class TestWorkflowHelpers:
 
     def test_format_user_memory_with_preferences(self):
         """Test formatting user memory with preferences."""
-        user_data = {"memory": UserProfile(customer_id="123", music_preferences=["Rock", "Jazz", "Blues"])}
-
-        result = format_user_memory(user_data)
+        user_data = {"memory": UserProfile(customer_id="123", music_preferences=["Rock", "Jazz", "Blues"]).model_dump()}
+        user_data_bytes = json.dumps(user_data).encode('utf-8')
+        result = format_user_memory(user_data_bytes)
         assert result == "Music Preferences: Rock, Jazz, Blues"
 
     def test_format_user_memory_empty_preferences(self):
         """Test formatting user memory with empty preferences."""
-        user_data = {"memory": UserProfile(customer_id="123", music_preferences=[])}
-
-        result = format_user_memory(user_data)
+        user_data = {"memory": UserProfile(customer_id="123", music_preferences=[]).model_dump()}
+        user_data_bytes = json.dumps(user_data).encode('utf-8')
+        result = format_user_memory(user_data_bytes)
         assert result == ""
 
 
@@ -123,33 +126,37 @@ class TestWorkflowNodes:
 
     def _dummy_state(self):
         return State(customer_id='123', messages=[], loaded_memory="", remaining_steps=10)
-    
+
     def test_load_memory_finds_profile(self):
         """load_memory returns formatted user preferences string."""
         mock_store = MagicMock()
         mock_profile = UserProfile(customer_id='123', music_preferences=['Rock', 'Jazz'])
-       
-        mock_store.mget.return_value = [{'memory': mock_profile}]
+        data_to_load = {'memory': mock_profile.model_dump()}
+        bytes_to_load = json.dumps(data_to_load).encode('utf-8')
 
-        result = load_memory(self._dummy_state(), None, mock_store)    
+        mock_store.mget.return_value = [bytes_to_load]
+
+        result = load_memory(self._dummy_state(), None, mock_store)
         assert result['loaded_memory'] == 'Music Preferences: Rock, Jazz'
-            
+
     @patch('workflow.llm')
     def test_create_memory_updates_profile(self, mock_llm):
         """create_memory stores new user profile in the store."""
         mock_store = MagicMock()
         mock_store.mget.return_value = [None]  # No existing profile
         new_profile = UserProfile(customer_id='123', music_preferences=['Classical'])
-        
+
         mock_llm.with_structured_output.return_value.invoke.return_value = new_profile
-    
+
         create_memory(self._dummy_state(), None, mock_store)
-    
-        mock_store.put.assert_called_once()
+
+        mock_store.mset.assert_called_once()
+
+        # The first argument to mset() is a list of tuples
+        args_list = mock_store.mset.call_args[0][0]
+        key, data_to_store_bytes = args_list[0]
         
-        # The first argument to put() is a list of tuples
-        args_list = mock_store.put.call_args[0][0]
-        key, data_to_store = args_list[0]
-    
+        data_to_store = json.loads(data_to_store_bytes.decode('utf-8'))
+
         assert key == "memory_profile_123"
-        assert data_to_store['memory'].music_preferences == ['Classical']
+        assert data_to_store['memory']['music_preferences'] == ['Classical']

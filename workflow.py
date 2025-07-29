@@ -7,6 +7,7 @@ from langgraph_supervisor import create_supervisor
 from langgraph.store.base import BaseStore
 from langchain_core.runnables import RunnableConfig
 import ast
+import json
 
 from config import llm, checkpointer, store
 from database import db
@@ -29,7 +30,6 @@ Multiple steps may be required to fully satisfy a request.
 """
 
 # Create the supervisor
-# The create_supervisor function returns a graph, which must be compiled.
 supervisor_graph = create_supervisor(
     agents=[invoice_agent, music_agent],
     output_mode="last_message",
@@ -39,11 +39,14 @@ supervisor_graph = create_supervisor(
 )
 supervisor_prebuilt_workflow = supervisor_graph.compile()
 
+
 # Wrap the supervisor to pass the full state
 def run_supervisor(state: State):
     return supervisor_prebuilt_workflow.invoke(state)
 
+
 supervisor_node = RunnableLambda(run_supervisor)
+
 
 def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
     """Resolve a customer identifier (ID, e-mail, phone) to CustomerId."""
@@ -71,18 +74,21 @@ def get_customer_id_from_identifier(identifier: str) -> Optional[int]:
         print(f"Error looking up customer: {e}")
     return None
 
+
 # Forced to output data matching the UserInput schema.
 structured_llm = llm.with_structured_output(schema=UserInput)
-structured_system_prompt = ("Extract the customer's identifier (ID, e-mail, phone) from the messages. If none is present, return an empty string.")
+structured_system_prompt = (
+    "Extract the customer's identifier (ID, e-mail, phone) from the messages. If none is present, return an empty string.")
+
 
 # Checks if a user is verified before letting the workflow continue.
 def verify_info(state: State, config: RunnableConfig):
     """Verify customer identity or prompt for it."""
     if state.get("customer_id") is None:
         guidance = (
-          "Before helping, you must verify the customer's identity "
-          "(ID, e-mail, or phone). If it's missing, ask. "
-          "If the supplied identifier is invalid, ask for a correction."
+            "Before helping, you must verify the customer's identity "
+            "(ID, e-mail, or phone). If it's missing, ask. "
+            "If the supplied identifier is invalid, ask for a correction."
         )
 
         # Get the most recent message from the conversation history
@@ -101,32 +107,42 @@ def verify_info(state: State, config: RunnableConfig):
     # Already verified
     return None
 
+
 def human_input(state: State, config: RunnableConfig):
     """Interrupt the graph and await fresh user input."""
     return interrupt("Please provide input.")
+
 
 def should_interrupt(state: State, config: RunnableConfig):
     """Branch: continue if verified else interrupt."""
     action = "continue" if state.get("customer_id") is not None else "interrupt"
     return action
 
-def format_user_memory(user_data):
-    if user_data and "memory" in user_data:
-        profile: UserProfile = user_data["memory"]
+
+def format_user_memory(user_data_bytes: Optional[bytes]) -> str:
+    if not user_data_bytes:
+        return ""
+    
+    user_data = json.loads(user_data_bytes.decode())
+    
+    if "memory" in user_data:
+        profile = UserProfile.model_validate(user_data["memory"])
         if profile.music_preferences:
             return f"Music Preferences: {', '.join(profile.music_preferences)}"
     return ""
+
 
 def load_memory(state: State, config: RunnableConfig, store: BaseStore):
     """Load saved user preferences (if any)."""
     uid = state["customer_id"]
     key = f"memory_profile_{uid}"
-    # The 'mget' method returns a list of values for the given keys
+    
     entries = store.mget([key])
-    # We are only getting one key, so we take the first element
     entry_value = entries[0] if entries else None
+    
     formatted = format_user_memory(entry_value) if entry_value else ""
     return {"loaded_memory": formatted}
+
 
 create_memory_prompt = """
 Analyse the conversation and update the customer's memory profile.
@@ -144,20 +160,31 @@ Existing profile:
 {memory_profile}
 """
 
+
 def create_memory(state: State, config: RunnableConfig, store: BaseStore):
     uid = str(state["customer_id"])
     key = f"memory_profile_{uid}"
 
     entries = store.mget([key])
-    entry_value = entries[0] if entries else None
-    current_pref = ""
-    if entry_value and "memory" in entry_value:
-        prof: UserProfile = entry_value["memory"]
-        current_pref = ", ".join(prof.music_preferences or [])
+    entry_value_bytes = entries[0] if entries else None
 
-    sys = SystemMessage(content=create_memory_prompt.format(conversation=state["messages"], memory_profile=current_pref))
+    current_pref = ""
+    if entry_value_bytes:
+        entry_value = json.loads(entry_value_bytes.decode())
+        if "memory" in entry_value:
+            prof = UserProfile.model_validate(entry_value["memory"])
+            current_pref = ", ".join(prof.music_preferences or [])
+
+    sys = SystemMessage(
+        content=create_memory_prompt.format(conversation=state["messages"], memory_profile=current_pref))
     new_profile = llm.with_structured_output(UserProfile).invoke([sys])
-    store.mset([(key, {"memory": new_profile})])
+
+    # Serialize the dictionary to a JSON string and then encode to bytes
+    data_to_store = {"memory": new_profile.model_dump()}
+    bytes_to_store = json.dumps(data_to_store).encode('utf-8')
+    
+    store.mset([(key, bytes_to_store)])
+
 
 multi_agent_final = StateGraph(State)
 multi_agent_final.add_node("verify_info", verify_info)
