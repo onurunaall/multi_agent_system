@@ -50,7 +50,8 @@ class TestWorkflowHelpers:
         """Test should_interrupt when customer ID exists."""
         state = State(customer_id="123",
                       messages=[],
-                      loaded_memory="")
+                      loaded_memory="",
+                      remaining_steps=10)
 
         assert should_interrupt(state, None) == "continue"
 
@@ -58,7 +59,8 @@ class TestWorkflowHelpers:
         """Test should_interrupt when customer ID is missing."""
         state = State(customer_id=None,
                       messages=[],
-                      loaded_memory="")
+                      loaded_memory="",
+                      remaining_steps=10)
 
         assert should_interrupt(state, None) == "interrupt"
 
@@ -91,7 +93,8 @@ class TestWorkflowNodes:
 
         state = State(messages=[HumanMessage(content='my email is user@example.com')],
                       customer_id=None,
-                      loaded_memory="")
+                      loaded_memory="",
+                      remaining_steps=10)
 
         result = verify_info(state, None)
 
@@ -110,7 +113,8 @@ class TestWorkflowNodes:
 
         state = State(messages=[HumanMessage(content='my email is missing@example.com')],
                       customer_id=None,
-                      loaded_memory="")
+                      loaded_memory="",
+                      remaining_steps=10)
 
         result = verify_info(state, None)
 
@@ -118,7 +122,7 @@ class TestWorkflowNodes:
         assert 'provide' in result['messages'][-1].content.lower()
 
     def _dummy_state(self):
-        return State(customer_id='123', messages=[], loaded_memory="")
+        return State(customer_id='123', messages=[], loaded_memory="", remaining_steps=10)
     
     def test_load_memory_finds_profile(self):
         """load_memory returns formatted user preferences string."""

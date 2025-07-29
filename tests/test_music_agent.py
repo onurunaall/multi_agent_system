@@ -101,7 +101,8 @@ class TestMusicAssistant:
         """Test should_continue when tool calls exist."""
         state = State(customer_id="123",
                       messages=[AIMessage(content="", tool_calls=[{"name": "test"}])],
-                      loaded_memory="")
+                      loaded_memory="",
+                      remaining_steps=10)
 
         assert should_continue(state) == "continue"
 
@@ -109,6 +110,7 @@ class TestMusicAssistant:
         """Test should_continue when no tool calls."""
         state = State(customer_id="123",
                       messages=[AIMessage(content="Here's the answer")],
-                      loaded_memory="")
+                      loaded_memory="",
+                      remaining_steps=10)
 
         assert should_continue(state) == "end"

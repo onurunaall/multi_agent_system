@@ -7,6 +7,7 @@ class State(TypedDict):
     customer_id: str
     messages: Annotated[List[AnyMessage], add_messages]
     loaded_memory: str
+    remaining_steps: int
 
 class UserInput(BaseModel):
     """Schema for extracting customer identifiers during verification."""
