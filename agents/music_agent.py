@@ -60,14 +60,14 @@ def get_songs_by_genre(genre: str):
         list[dict]: A list of songs that match the specified genre.
     """
     if not genre or not genre.strip():
-        return "Genre name is required"
+        raise ValueError("Genre name is required")
         
     genre = genre.strip()
     genre_ids_raw = db.run("SELECT GenreId FROM Genre WHERE Name LIKE ?",
                            [f"%{genre}%"])
     
     if not genre_ids_raw:
-        return f"No songs found for the genre: {genre}"
+        raise ValueError(f"No songs found for the genre: {genre}")
 
     genre_ids = ast.literal_eval(genre_ids_raw)
     genre_id_values = [gid[0] for gid in genre_ids]
@@ -83,7 +83,7 @@ def get_songs_by_genre(genre: str):
     songs_raw = db.run(songs_query, genre_id_values, include_columns=True)
 
     if not songs_raw:
-        return f"No songs found for the genre: {genre}"
+        raise ValueError(f"No songs found for the genre: {genre}")
 
     return ast.literal_eval(songs_raw)
 

@@ -67,9 +67,8 @@ class TestMusicTools:
         """Test getting songs for non-existent genre."""
         mock_db.run.return_value = ""
 
-        result = get_songs_by_genre("NonExistentGenre")
-
-        assert "No songs found" in result
+        with pytest.raises(ValueError, match="No songs found for the genre: NonExistentGenre"):
+            get_songs_by_genre("NonExistentGenre")
 
     @patch('agents.music_agent.db')
     def test_check_for_songs_valid(self, mock_db):
