@@ -157,7 +157,7 @@ def create_memory(state: State, config: RunnableConfig, store: BaseStore):
 
     sys = SystemMessage(content=create_memory_prompt.format(conversation=state["messages"], memory_profile=current_pref))
     new_profile = llm.with_structured_output(UserProfile).invoke([sys])
-    store.put([(key, {"memory": new_profile})])
+    store.mset([(key, {"memory": new_profile})])
 
 multi_agent_final = StateGraph(State)
 multi_agent_final.add_node("verify_info", verify_info)
