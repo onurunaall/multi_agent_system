@@ -1,5 +1,4 @@
 from typing import TypedDict, Annotated, List
-from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from langgraph.graph.message import AnyMessage
 from langgraph.managed import RemainingSteps
