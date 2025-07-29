@@ -18,7 +18,7 @@ class TestMusicTools:
         mock_db.run.assert_called_once()
         query, params = mock_db.run.call_args[0]
         assert '?' in query
-        assert params == ['Artist1']
+        assert params == ["%Artist1%"]
 
     def test_get_albums_by_artist_empty(self):
         """Test getting albums with empty artist name."""
@@ -41,7 +41,7 @@ class TestMusicTools:
         query, params = mock_db.run.call_args[0]
         
         assert '?' in query
-        assert params == ['Artist1']
+        assert params == ["%Artist1%"]
 
     @patch('agents.music_agent.db')
     def test_get_songs_by_genre_valid(self, mock_db):
@@ -57,7 +57,7 @@ class TestMusicTools:
             query, params = call_args[0]
             assert '?' in query
         
-        assert any(call_args[0][1][0] == 'Rock' for call_args in mock_db.run.call_args_list)
+        assert any(call_args[0][1][0] == "%Rock%" for call_args in mock_db.run.call_args_list)
         assert isinstance(result, list)
 
     @patch('agents.music_agent.db')
@@ -79,7 +79,7 @@ class TestMusicTools:
         mock_db.run.assert_called_once()
         query, params = mock_db.run.call_args[0]
         assert '?' in query
-        assert params == ['Song1']
+        assert params == ["%Song1%"]
 
 
 class TestMusicAssistant:
@@ -101,8 +101,7 @@ class TestMusicAssistant:
         """Test should_continue when tool calls exist."""
         state = State(customer_id="123",
                       messages=[AIMessage(content="", tool_calls=[{"name": "test"}])],
-                      loaded_memory=[],
-                      remaining_steps=10)
+                      loaded_memory="")
 
         assert should_continue(state) == "continue"
 
@@ -110,7 +109,6 @@ class TestMusicAssistant:
         """Test should_continue when no tool calls."""
         state = State(customer_id="123",
                       messages=[AIMessage(content="Here's the answer")],
-                      loaded_memory=[],
-                      remaining_steps=10)
+                      loaded_memory="")
 
         assert should_continue(state) == "end"

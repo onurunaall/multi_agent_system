@@ -39,8 +39,7 @@ class TestSchemas:
         state = State(
             customer_id="123",
             messages=[HumanMessage(content="Hello")],
-            loaded_memory=["preference1"],
-            remaining_steps=10
+            loaded_memory="preference1"
         )
         assert state["customer_id"] == "123"
         assert len(state["messages"]) == 1

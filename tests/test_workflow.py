@@ -23,7 +23,7 @@ class TestWorkflowHelpers:
         query, params = mock_db.run.call_args[0]
         
         assert "WHERE Phone = ?" in query
-        assert params == ["+1234567890"]
+        assert params == ("+1234567890",)
 
     @patch('workflow.db')
     def test_get_customer_id_from_identifier_email(self, mock_db):
@@ -35,7 +35,7 @@ class TestWorkflowHelpers:
         assert result == 789
         query, params = mock_db.run.call_args[0]
         assert "WHERE Email = ?" in query
-        assert params == ["test@example.com"]
+        assert params == ("test@example.com",)
 
     @patch('workflow.db')
     def test_get_customer_id_from_identifier_not_found(self, mock_db):
@@ -50,8 +50,7 @@ class TestWorkflowHelpers:
         """Test should_interrupt when customer ID exists."""
         state = State(customer_id="123",
                       messages=[],
-                      loaded_memory=[],
-                      remaining_steps=10)
+                      loaded_memory="")
 
         assert should_interrupt(state, None) == "continue"
 
@@ -59,8 +58,7 @@ class TestWorkflowHelpers:
         """Test should_interrupt when customer ID is missing."""
         state = State(customer_id=None,
                       messages=[],
-                      loaded_memory=[],
-                      remaining_steps=10)
+                      loaded_memory="")
 
         assert should_interrupt(state, None) == "interrupt"
 
@@ -93,8 +91,7 @@ class TestWorkflowNodes:
 
         state = State(messages=[HumanMessage(content='my email is user@example.com')],
                       customer_id=None,
-                      loaded_memory=[],
-                      remaining_steps=5)
+                      loaded_memory="")
 
         result = verify_info(state, None)
 
@@ -104,15 +101,16 @@ class TestWorkflowNodes:
 
     @patch('workflow.get_customer_id_from_identifier')
     @patch('workflow.structured_llm')
-    def test_verify_info_prompts_for_id(self, mock_llm, mock_lookup):
+    @patch('workflow.llm')
+    def test_verify_info_prompts_for_id(self, mock_llm, mock_structured_llm, mock_lookup):
         """verify_info prompts for more info when lookup fails."""
-        mock_llm.invoke.return_value = MagicMock(identifier='missing@example.com')
+        mock_structured_llm.invoke.return_value = MagicMock(identifier='missing@example.com')
         mock_lookup.return_value = None
+        mock_llm.invoke.return_value = AIMessage(content="Please provide your customer ID")
 
         state = State(messages=[HumanMessage(content='my email is missing@example.com')],
                       customer_id=None,
-                      loaded_memory=[],
-                      remaining_steps=5)
+                      loaded_memory="")
 
         result = verify_info(state, None)
 
@@ -120,7 +118,7 @@ class TestWorkflowNodes:
         assert 'provide' in result['messages'][-1].content.lower()
 
     def _dummy_state(self):
-        return State(customer_id='123', messages=[], loaded_memory=[], remaining_steps=5)
+        return State(customer_id='123', messages=[], loaded_memory="")
     
     def test_load_memory_finds_profile(self):
         """load_memory returns formatted user preferences string."""
