@@ -10,94 +10,106 @@ from schemas import State
 
 # Find all albums by a specific artist.
 @tool
-def get_albums_by_artist(artist: str):
+def get_albums_by_artist(artist: str) -> str:
     """Get albums by an artist."""
     if not artist or not artist.strip():
-        raise ValueError("Artist name required")
+        return "Artist name required"
 
     artist = artist.strip()
+    # Escape single quotes for SQL
+    safe_artist = artist.replace("'", "''")
 
-    return db.run(
-        """
-        SELECT Album.Title, Artist.Name
-        FROM Album
-        JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        WHERE Artist.Name LIKE ?
-        """,
-        [f"%{artist}%"],
-        include_columns=True
-    )
+    query = f"""
+        SELECT "Album"."Title", "Artist"."Name"
+        FROM "Album"
+        JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
+        WHERE "Artist"."Name" LIKE '%{safe_artist}%'
+    """
+    return db.run(query)
 
 # Get all the songs by a given artist.
 @tool
-def get_tracks_by_artist(artist: str):
+def get_tracks_by_artist(artist: str) -> str:
     """Get songs by an artist (or similar artists)."""
     if not artist or not artist.strip():
-        raise ValueError("Artist name required")
+        return "Artist name required"
     
     artist = artist.strip()
+    # Escape single quotes for SQL
+    safe_artist = artist.replace("'", "''")
     
-    return db.run(
-        """
-        SELECT Track.Name AS SongName, Artist.Name AS ArtistName
-        FROM Album
-        LEFT JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        LEFT JOIN Track ON Track.AlbumId = Album.AlbumId
-        WHERE Artist.Name LIKE ?
-        """,
-        [f"%{artist}%"],
-        include_columns=True
-    )
+    query = f"""
+        SELECT "Track"."Name" AS SongName, "Artist"."Name" AS ArtistName
+        FROM "Album"
+        LEFT JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
+        LEFT JOIN "Track" ON "Track"."AlbumId" = "Album"."AlbumId"
+        WHERE "Artist"."Name" LIKE '%{safe_artist}%'
+    """
+    return db.run(query)
 
 # Find songs that belong to a specific genre.
 @tool
-def get_songs_by_genre(genre: str):
+def get_songs_by_genre(genre: str) -> str:
     """
     Fetch songs that match a specific genre.
     Args:
         genre (str): The genre of the songs to fetch.
     Returns:
-        list[dict]: A list of songs that match the specified genre.
+        str: A list of songs that match the specified genre.
     """
     if not genre or not genre.strip():
-        raise ValueError("Genre name is required")
+        return "Genre name is required"
         
     genre = genre.strip()
-    genre_ids_raw = db.run("SELECT GenreId FROM Genre WHERE Name LIKE ?",
-                           [f"%{genre}%"])
+    # Escape single quotes for SQL
+    safe_genre = genre.replace("'", "''")
     
-    if not genre_ids_raw:
-        raise ValueError(f"No songs found for the genre: {genre}")
+    # First get genre IDs
+    genre_query = f"""SELECT "GenreId" FROM "Genre" WHERE "Name" LIKE '%{safe_genre}%'"""
+    genre_ids_raw = db.run(genre_query)
+    
+    if not genre_ids_raw or genre_ids_raw == "[]":
+        return f"No songs found for the genre: {genre}"
 
-    genre_ids = ast.literal_eval(genre_ids_raw)
-    genre_id_values = [gid[0] for gid in genre_ids]
-    placeholders = ", ".join("?" * len(genre_id_values))
+    try:
+        genre_ids = ast.literal_eval(genre_ids_raw)
+        if not genre_ids:
+            return f"No songs found for the genre: {genre}"
+        
+        # Build the IN clause with genre IDs
+        genre_id_values = [str(gid[0]) for gid in genre_ids]
+        genre_ids_str = ", ".join(genre_id_values)
 
-    songs_query = f"""
-        SELECT Track.Name AS Song, Artist.Name AS Artist
-        FROM Track
-        LEFT JOIN Album  ON Track.AlbumId  = Album.AlbumId
-        LEFT JOIN Artist ON Album.ArtistId = Artist.ArtistId
-        WHERE Track.GenreId IN ({placeholders});
-    """
-    songs_raw = db.run(songs_query, genre_id_values, include_columns=True)
+        songs_query = f"""
+            SELECT "Track"."Name" AS Song, "Artist"."Name" AS Artist
+            FROM "Track"
+            LEFT JOIN "Album"  ON "Track"."AlbumId"  = "Album"."AlbumId"
+            LEFT JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
+            WHERE "Track"."GenreId" IN ({genre_ids_str})
+        """
+        songs_raw = db.run(songs_query)
 
-    if not songs_raw:
-        raise ValueError(f"No songs found for the genre: {genre}")
+        if not songs_raw or songs_raw == "[]":
+            return f"No songs found for the genre: {genre}"
 
-    return ast.literal_eval(songs_raw)
+        return songs_raw
+    except Exception as e:
+        return f"Error fetching songs for genre {genre}: {str(e)}"
 
 @tool
-def check_for_songs(song_title: str):
+def check_for_songs(song_title: str) -> str:
     """Check if a song exists by its name."""
-    return db.run(
-        """
-        SELECT * FROM Track
-        WHERE Name LIKE ?;
-        """,
-        [f"%{song_title}%"],
-        include_columns=True,
-    )
+    if not song_title or not song_title.strip():
+        return "Song title required"
+    
+    # Escape single quotes for SQL
+    safe_title = song_title.strip().replace("'", "''")
+    
+    query = f"""
+        SELECT * FROM "Track"
+        WHERE "Name" LIKE '%{safe_title}%'
+    """
+    return db.run(query)
 
 music_tools = [get_albums_by_artist, get_tracks_by_artist, get_songs_by_genre, check_for_songs]
 
