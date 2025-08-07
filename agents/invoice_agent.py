@@ -5,67 +5,67 @@ from config import llm, checkpointer, store
 from database import db
 
 @tool
-def get_invoices_by_customer_sorted_by_date(customer_id: str) -> list[dict]:
+def get_invoices_by_customer_sorted_by_date(customer_id: str) -> str:
     """
     Look up all invoices for a customer, sorted by invoice date (descending).
     Args:
         customer_id (str): The customer identifier.
     Returns:
-        list[dict]: The customer's invoices.
+        str: The customer's invoices.
     """
-    return db.run(
-        """
+    # Use string formatting for PostgreSQL
+    query = f"""
         SELECT *
-        FROM Invoice
-        WHERE CustomerId = ?
-        ORDER BY InvoiceDate DESC;
-        """,
-        [customer_id]
-    )
+        FROM "Invoice"
+        WHERE "CustomerId" = {customer_id}
+        ORDER BY "InvoiceDate" DESC
+    """
+    return db.run(query)
 
 @tool
-def get_invoices_sorted_by_unit_price(customer_id: str) -> list[dict]:
+def get_invoices_sorted_by_unit_price(customer_id: str) -> str:
     """
     Retrieve all invoices for a customer, sorted by unit price (highest first).
     Args:
         customer_id (str): The customer identifier.
     Returns:
-        list[dict]: Invoices with unit-price information.
+        str: Invoices with unit-price information.
     """
-    query = """
-        SELECT Invoice.*, InvoiceLine.UnitPrice
-        FROM Invoice
-        JOIN InvoiceLine ON Invoice.InvoiceId = InvoiceLine.InvoiceId
-        WHERE Invoice.CustomerId = ?
-        ORDER BY InvoiceLine.UnitPrice DESC;
+    query = f"""
+        SELECT "Invoice".*, "InvoiceLine"."UnitPrice"
+        FROM "Invoice"
+        JOIN "InvoiceLine" ON "Invoice"."InvoiceId" = "InvoiceLine"."InvoiceId"
+        WHERE "Invoice"."CustomerId" = {customer_id}
+        ORDER BY "InvoiceLine"."UnitPrice" DESC
     """
-    return db.run(query, [customer_id])
+    return db.run(query)
 
 @tool
-def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> dict:
+def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> str:
     """
     Given an invoice ID and customer ID, return the employee linked to it.
     Args:
-        invoice_id (int): The invoice ID.
+        invoice_id (str): The invoice ID.
         customer_id (str): The customer identifier.
     Returns:
-        dict: Employee information or an explanatory message.
+        str: Employee information or an explanatory message.
     """
     if not invoice_id or not customer_id:
         return "Both invoice ID and customer ID are required"
 
-    query = """
-        SELECT Employee.FirstName, Employee.Title, Employee.Email
-        FROM Employee
-        JOIN Customer ON Customer.SupportRepId = Employee.EmployeeId
-        JOIN Invoice ON Invoice.CustomerId = Customer.CustomerId
-        WHERE Invoice.InvoiceId = ?
-          AND Invoice.CustomerId = ?;
+    query = f"""
+        SELECT "Employee"."FirstName", "Employee"."Title", "Employee"."Email"
+        FROM "Employee"
+        JOIN "Customer" ON "Customer"."SupportRepId" = "Employee"."EmployeeId"
+        JOIN "Invoice" ON "Invoice"."CustomerId" = "Customer"."CustomerId"
+        WHERE "Invoice"."InvoiceId" = {invoice_id}
+          AND "Invoice"."CustomerId" = {customer_id}
     """
-    result = db.run(query, [invoice_id, customer_id], include_columns=True)
+    
+    result = db.run(query)
     return (
         result
-        if result
+        if result and result != "[]"
         else f"No employee found for invoice {invoice_id} and customer {customer_id}."
     )
 
