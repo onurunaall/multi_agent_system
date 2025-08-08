@@ -1,8 +1,7 @@
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
-from config import llm, checkpointer, store
-from database import db
+from config import llm, checkpointer, store, db
 
 @tool
 def get_invoices_by_customer_sorted_by_date(customer_id: str) -> str:
@@ -13,14 +12,13 @@ def get_invoices_by_customer_sorted_by_date(customer_id: str) -> str:
     Returns:
         str: The customer's invoices.
     """
-    # Use string formatting for PostgreSQL
-    query = f"""
+    query = """
         SELECT *
         FROM "Invoice"
-        WHERE "CustomerId" = {customer_id}
+        WHERE "CustomerId" = %(customer_id)s
         ORDER BY "InvoiceDate" DESC
     """
-    return db.run(query)
+    return db.run(query, parameters={"customer_id": int(customer_id)})
 
 @tool
 def get_invoices_sorted_by_unit_price(customer_id: str) -> str:
@@ -31,14 +29,14 @@ def get_invoices_sorted_by_unit_price(customer_id: str) -> str:
     Returns:
         str: Invoices with unit-price information.
     """
-    query = f"""
+    query = """
         SELECT "Invoice".*, "InvoiceLine"."UnitPrice"
         FROM "Invoice"
         JOIN "InvoiceLine" ON "Invoice"."InvoiceId" = "InvoiceLine"."InvoiceId"
-        WHERE "Invoice"."CustomerId" = {customer_id}
+        WHERE "Invoice"."CustomerId" = %(customer_id)s
         ORDER BY "InvoiceLine"."UnitPrice" DESC
     """
-    return db.run(query)
+    return db.run(query, parameters={"customer_id": int(customer_id)})
 
 @tool
 def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> str:
@@ -53,16 +51,16 @@ def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> s
     if not invoice_id or not customer_id:
         return "Both invoice ID and customer ID are required"
 
-    query = f"""
+    query = """
         SELECT "Employee"."FirstName", "Employee"."Title", "Employee"."Email"
         FROM "Employee"
         JOIN "Customer" ON "Customer"."SupportRepId" = "Employee"."EmployeeId"
         JOIN "Invoice" ON "Invoice"."CustomerId" = "Customer"."CustomerId"
-        WHERE "Invoice"."InvoiceId" = {invoice_id}
-          AND "Invoice"."CustomerId" = {customer_id}
+        WHERE "Invoice"."InvoiceId" = %(invoice_id)s
+          AND "Invoice"."CustomerId" = %(customer_id)s
     """
     
-    result = db.run(query)
+    result = db.run(query, parameters={"invoice_id": int(invoice_id), "customer_id": int(customer_id)})
     return (
         result
         if result and result != "[]"
