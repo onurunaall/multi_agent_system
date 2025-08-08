@@ -5,7 +5,6 @@ description = "A sophisticated multi-agent customer support system using LangGra
 authors = ["Onur Ünal <onur.unal402@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-package-mode = false
 repository = "https://github.com/onurunaall/multi-agent-system"
 
 [tool.poetry.dependencies]
@@ -40,7 +39,7 @@ sphinx-autodoc-typehints = "^2.0.0"
 
 [tool.black]
 line-length = 88
-target-version = ['py39', 'py310', 'py311']
+target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -64,6 +63,21 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 line_length = 88
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = "E203, W503"
+exclude = [
+    ".git",
+    "__pycache__",
+    "docs/source/conf.py",
+    "old",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg",
+    "venv/",
+]
 
 [tool.mypy]
 python_version = "3.11"
