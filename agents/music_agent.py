@@ -1,11 +1,9 @@
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-import ast
+from langchain_core.messages import SystemMessage
 
-from config import llm, checkpointer, store
-from database import db
+from config import llm, checkpointer, store, db
 from schemas import State
 
 # Find all albums by a specific artist.
@@ -15,17 +13,13 @@ def get_albums_by_artist(artist: str) -> str:
     if not artist or not artist.strip():
         return "Artist name required"
 
-    artist = artist.strip()
-    # Escape single quotes for SQL
-    safe_artist = artist.replace("'", "''")
-
-    query = f"""
+    query = """
         SELECT "Album"."Title", "Artist"."Name"
         FROM "Album"
         JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
-        WHERE "Artist"."Name" LIKE '%{safe_artist}%'
+        WHERE "Artist"."Name" ILIKE %(artist_name)s
     """
-    return db.run(query)
+    return db.run(query, parameters={"artist_name": f"%{artist.strip()}%"})
 
 # Get all the songs by a given artist.
 @tool
@@ -34,18 +28,14 @@ def get_tracks_by_artist(artist: str) -> str:
     if not artist or not artist.strip():
         return "Artist name required"
     
-    artist = artist.strip()
-    # Escape single quotes for SQL
-    safe_artist = artist.replace("'", "''")
-    
-    query = f"""
+    query = """
         SELECT "Track"."Name" AS SongName, "Artist"."Name" AS ArtistName
         FROM "Album"
         LEFT JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
         LEFT JOIN "Track" ON "Track"."AlbumId" = "Album"."AlbumId"
-        WHERE "Artist"."Name" LIKE '%{safe_artist}%'
+        WHERE "Artist"."Name" ILIKE %(artist_name)s
     """
-    return db.run(query)
+    return db.run(query, parameters={"artist_name": f"%{artist.strip()}%"})
 
 # Find songs that belong to a specific genre.
 @tool
@@ -59,42 +49,23 @@ def get_songs_by_genre(genre: str) -> str:
     """
     if not genre or not genre.strip():
         return "Genre name is required"
-        
-    genre = genre.strip()
-    # Escape single quotes for SQL
-    safe_genre = genre.replace("'", "''")
+
+    genre_name = genre.strip()
     
-    # First get genre IDs
-    genre_query = f"""SELECT "GenreId" FROM "Genre" WHERE "Name" LIKE '%{safe_genre}%'"""
-    genre_ids_raw = db.run(genre_query)
+    query = """
+        SELECT "Track"."Name" AS "Song", "Artist"."Name" AS "Artist"
+        FROM "Track"
+        JOIN "Album" ON "Track"."AlbumId" = "Album"."AlbumId"
+        JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
+        JOIN "Genre" ON "Track"."GenreId" = "Genre"."GenreId"
+        WHERE "Genre"."Name" ILIKE %(genre_name)s
+    """
     
-    if not genre_ids_raw or genre_ids_raw == "[]":
-        return f"No songs found for the genre: {genre}"
-
-    try:
-        genre_ids = ast.literal_eval(genre_ids_raw)
-        if not genre_ids:
-            return f"No songs found for the genre: {genre}"
-        
-        # Build the IN clause with genre IDs
-        genre_id_values = [str(gid[0]) for gid in genre_ids]
-        genre_ids_str = ", ".join(genre_id_values)
-
-        songs_query = f"""
-            SELECT "Track"."Name" AS Song, "Artist"."Name" AS Artist
-            FROM "Track"
-            LEFT JOIN "Album"  ON "Track"."AlbumId"  = "Album"."AlbumId"
-            LEFT JOIN "Artist" ON "Album"."ArtistId" = "Artist"."ArtistId"
-            WHERE "Track"."GenreId" IN ({genre_ids_str})
-        """
-        songs_raw = db.run(songs_query)
-
-        if not songs_raw or songs_raw == "[]":
-            return f"No songs found for the genre: {genre}"
-
-        return songs_raw
-    except Exception as e:
-        return f"Error fetching songs for genre {genre}: {str(e)}"
+    results = db.run(query, parameters={"genre_name": f"%{genre_name}%"})
+    
+    if not results or results == "[]":
+        return f"No songs found for the genre: {genre_name}"
+    return results
 
 @tool
 def check_for_songs(song_title: str) -> str:
@@ -102,24 +73,20 @@ def check_for_songs(song_title: str) -> str:
     if not song_title or not song_title.strip():
         return "Song title required"
     
-    # Escape single quotes for SQL
-    safe_title = song_title.strip().replace("'", "''")
-    
-    query = f"""
+    query = """
         SELECT * FROM "Track"
-        WHERE "Name" LIKE '%{safe_title}%'
+        WHERE "Name" ILIKE %(song_title)s
     """
-    return db.run(query)
+    return db.run(query, parameters={"song_title": f"%{song_title.strip()}%"})
 
 music_tools = [get_albums_by_artist, get_tracks_by_artist, get_songs_by_genre, check_for_songs]
 
 llm_with_music_tools = llm.bind_tools(music_tools)
 music_tool_node = ToolNode(music_tools)
 
-def generate_music_assistant_prompt(memory: str = "None") -> str:
-    music_assistant_prompt =  f"""
-You are one of several specialised assistants; your focus is the music-catalog. If the catalog is missing an artist's material, simply say so.  
-Prior saved user preferences: {memory}
+def generate_music_assistant_prompt() -> str:
+    music_assistant_prompt =  """
+You are one of several specialised assistants; your focus is the music-catalog. If the catalog is missing an artist's material, simply say so.
 
 CORE RESPONSIBILITIES
 - Search for songs, albums, artists, playlists
@@ -137,9 +104,7 @@ Message history follows.
 
 def music_assistant(state: State):
     """The reasoning node for the music assistant. Generates tool calls or a final answer."""
-    memory = state.get("loaded_memory", "None")
-    music_assistant_prompt = generate_music_assistant_prompt(memory)
-
+    music_assistant_prompt = generate_music_assistant_prompt()
     response = llm_with_music_tools.invoke([SystemMessage(content=music_assistant_prompt)] + state["messages"])
     return {"messages": [response]}
 
