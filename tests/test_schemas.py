@@ -23,12 +23,10 @@ class TestSchemas:
     
     def test_state_typing(self):
         """Test State TypedDict structure."""
-        state = State(
-            customer_id="123",
-            messages=[HumanMessage(content="Hello")],
-            loaded_memory="preference1",
-            remaining_steps=10
-        )
+        state = State(customer_id="123",
+                      messages=[HumanMessage(content="Hello")],
+                      remaining_steps=10)
+        
         assert state["customer_id"] == "123"
         assert len(state["messages"]) == 1
         assert state["remaining_steps"] == 10
