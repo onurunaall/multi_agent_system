@@ -10,8 +10,8 @@ from unittest.mock import patch, MagicMock
                            "DB_NAME": "test_db",
                            "OPENAI_API_KEY": "test_key"})
 def test_module_imports():
-"Ensure modules can be imported with mocked environment."""
-    from agents.invoice_agent import get_invoices_by_customer_sorted_by_date, get_invoices_sorted_by_unit_price, get_employee_by_invoice_and_customer, create_invoice_agent
+  "Ensure modules can be imported with mocked environment."""
+  from agents.invoice_agent import get_invoices_by_customer_sorted_by_date, get_invoices_sorted_by_unit_price, get_employee_by_invoice_and_customer, create_invoice_agent
 
 class TestInvoiceTools:
   @patch.dict("os.environ", {"DB_USER": "test_user",
