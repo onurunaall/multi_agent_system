@@ -1,34 +1,27 @@
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from langchain_core.messages import HumanMessage, AIMessage
 from workflow import multi_agent_final_graph
 
-
-class TestIntegration:
-    """Integration test cases."""
+@pytest.mark.asyncio
+async def test_verification_and_supervisor_flow():
+    """Test the full graph flow from verification to supervisor handoff."""
+    config = {“configurable”: {“thread_id”: “test-integration-thread”}}
     
-    @pytest.mark.asyncio
-    @patch('workflow.get_customer_id_from_identifier')
-    @patch('workflow.structured_llm')
-    async def test_verification_flow(self, mock_structured_llm, mock_get_customer):
-        """Test the verification flow end-to-end."""
-        # Mock the structured LLM to extract identifier
-        mock_parsed = MagicMock()
-        mock_parsed.identifier = "test@example.com"
-        mock_structured_llm.invoke.return_value = mock_parsed
-        
-        # Mock customer lookup
-        mock_get_customer.return_value = 123
-        
-        # Create initial state
-        config = {"configurable": {"thread_id": "test-thread"}}
-        
-        # Invoke the graph
-        result = await multi_agent_final_graph.ainvoke(
-            {"messages": [HumanMessage(content="My email is test@example.com")]},
-            config
-        )
-        
-        assert result["customer_id"] == 123
-        assert any("verified" in str(msg.content).lower() for msg in result["messages"] if hasattr(msg, 'content'))
+    # 1. First invocation with an identifier
+    input1 = {"messages": [HumanMessage(content="Hello my email is found@example.com")]}
+    
+    # Mock the call to the database lookup
+    with patch('workflow.get_customer_id_from_identifier', return_value=123) as mock_lookup:
+        # Mock the supervisor so it just returns a message instead of calling an agent
+        with patch('workflow.supervisor_prebuilt_workflow.invoke', return_value={"messages": [AIMessage(content="Supervisor speaking.")]}) as mock_supervisor:
+            final_state = await multi_agent_final_graph.ainvoke(input1, config)
+    
+            # Assertions
+            mock_lookup.assert_called_once_with("found@example.com")
+            mock_supervisor.assert_called_once()
+    
+            # Check that the final message is from the supervisor
+            last_message = final_state['messages'][-1]
+            assert isinstance(last_message, AIMessage)
+            assert last_message.content == "Supervisor speaking."
