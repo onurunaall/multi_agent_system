@@ -81,12 +81,12 @@ class TestInvoiceTools:
         assert result == "[{'FirstName': 'John', 'Title': 'Sales', 'Email': 'john@test.com'}]"
 
     @patch.dict("os.environ", {
-        "DB_USER": "test_user",
-        "DB_PASSWORD": "test_pass",
-        "DB_HOST": "localhost",
-        "DB_PORT": "5432",
-        "DB_NAME": "test_db",
-        "OPENAI_API_KEY": "test_key"
+    "DB_USER": "test_user",
+    "DB_PASSWORD": "test_pass",
+    "DB_HOST": "localhost",
+    "DB_PORT": "5432",
+    "DB_NAME": "test_db",
+    "OPENAI_API_KEY": "test_key"
     })
     @patch("config.create_engine")
     @patch("agents.invoice_agent.db")
@@ -100,6 +100,4 @@ class TestInvoiceTools:
 
         result = get_employee_by_invoice_and_customer.invoke({"invoice_id": "999", "customer_id": "123"})
 
-        assert "No employee found" in result
-        assert "invoice 999" in result
-        assert "customer 123" in result
+        assert "No employee information found for that invoice" in result

@@ -61,12 +61,13 @@ def get_employee_by_invoice_and_customer(invoice_id: str, customer_id: str) -> s
           AND "Invoice"."CustomerId" = %(customer_id)s
     """
     
-    result = db.run(query, parameters={"invoice_id": int(invoice_id), "customer_id": int(customer_id)})
-    return (
-        result
-        if result and result != "[]"
-        else f"No employee found for invoice {invoice_id} and customer {customer_id}."
-    )
+    try:
+        result = db.run(query, parameters={"invoice_id": int(invoice_id), "customer_id": int(customer_id)})
+        return result if result and result != "[]" else "No employee information found for that invoice."
+    except (ValueError, TypeError):
+        return "Invalid invoice or customer ID format."
+    except Exception:
+        return "Unable to retrieve employee information at this time."
 
 invoice_tools = [get_invoices_by_customer_sorted_by_date,
                  get_invoices_sorted_by_unit_price,
